@@ -5,6 +5,7 @@ import upath from 'upath'
 import { ModuleOptions, ProviderFactory } from 'types'
 import { downloadImage, getFileExtension, hash, logger, tryRequire } from './utils'
 import { cleanDoubleSlashes } from './runtime/utils'
+import pLimit from 'p-limit'
 export type { Provider, RuntimeProvider } from 'types'
 
 function imageModule (moduleOptions: ModuleOptions) {
@@ -132,6 +133,7 @@ function handleStaticGeneration (nuxt: any, options: ModuleOptions) {
 
   nuxt.hook('generate:done', async () => {
     const { dir: generateDir } = nuxt.options.generate
+    const limit = pLimit(16);
     try { await fs.mkdir(path.join(generateDir, '_image')) } catch {}
 
     const downloads = Object.entries(staticImages)
@@ -139,11 +141,11 @@ function handleStaticGeneration (nuxt: any, options: ModuleOptions) {
         if (!url.startsWith('http')) {
           url = cleanDoubleSlashes(options.internalUrl + url)
         }
-        return downloadImage({
+        return limit(() => downloadImage({
           url,
           name,
           outDir: generateDir
-        })
+        }))
       })
     await Promise.all(downloads)
   })
